@@ -1,244 +1,51 @@
-    "use client";
-
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
-import { useToast } from '@/hooks/use-toast';
-import { ToastAction } from '@/components/ui/toast';
-import type { Reminder, Category } from '@/lib/types';
-import { AppSidebar } from '@/components/app/app-sidebar';
-import { AppHeader } from '@/components/app/app-header';
-import { ReminderList } from '@/components/app/reminder-list';
-import { AddReminderDialog } from '@/components/app/add-reminder-dialog';
-import { add, format, subDays } from 'date-fns';
-import * as Tone from 'tone';
-
-const getInitialReminders = (): Reminder[] => {
-    const now = new Date();
-    return [
-        {
-            id: '1',
-            text: 'Call Dr. Smith about test results',
-            dateTime: add(now, { minutes: 5 }).toISOString(),
-            category: 'Patients',
-            completed: false,
-            notified: false,
-        },
-        {
-            id: '2',
-            text: 'Buy milk, eggs, and bread',
-            dateTime: add(now, { hours: 2 }).toISOString(),
-            category: 'Grocery',
-            completed: false,
-            notified: false,
-        },
-        {
-            id: '3',
-            text: 'Read chapter 5 of "The Great Gatsby"',
-            dateTime: add(now, { days: 1 }).toISOString(),
-            category: 'Reading',
-            completed: true,
-            notified: true,
-        },
-        {
-            id: '4',
-            text: 'Book flight to New York',
-            dateTime: add(now, { days: 3 }).toISOString(),
-            category: 'Travel',
-            completed: false,
-            notified: false,
-        },
-        {
-            id: '5',
-            text: 'Pay credit card bill',
-            dateTime: subDays(now, 2).toISOString(),
-            category: 'Finance',
-            completed: false,
-            notified: true,
-        },
-    ];
-};
-
-export default function Home() {
-  const [reminders, setReminders] = useState<Reminder[]>([]);
-  const [isClient, setIsClient] = useState(false);
-  const [activeCategory, setActiveCategory] = useState<Category | 'All'>('All');
-  const [editingReminder, setEditingReminder] = useState<Reminder | undefined>(undefined);
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const { toast } = useToast();
-  const toneJsStarted = useRef(false);
-
-  useEffect(() => {
-    // This effect runs once on mount to confirm we are on the client.
-    setIsClient(true);
-  }, []);
-
-  useEffect(() => {
-    // This effect runs only when isClient becomes true.
-    if (isClient) {
-      // Load reminders from local storage on mount
-      let initialReminders: Reminder[];
-      try {
-        const storedReminders = localStorage.getItem('vocalist-reminders');
-        initialReminders = storedReminders ? JSON.parse(storedReminders) : getInitialReminders();
-      } catch (error) {
-        console.error("Failed to load reminders from localStorage", error);
-        initialReminders = getInitialReminders();
-      }
-      setReminders(initialReminders);
-
-      // Add a click listener to start the audio context.
-      const startTone = async () => {
-        if (toneJsStarted.current) return;
-        try {
-          await Tone.start();
-          toneJsStarted.current = true;
-          console.log('AudioContext started');
-        } catch (e) {
-          console.error("Failed to start Tone.js AudioContext", e);
-        }
-      };
-      
-      window.addEventListener('click', startTone);
-
-      return () => {
-        window.removeEventListener('click', startTone);
-      }
-    }
-  }, [isClient]);
-
-  useEffect(() => {
-    // This effect runs whenever reminders change, but only on the client.
-    if (isClient) {
-      try {
-        localStorage.setItem('vocalist-reminders', JSON.stringify(reminders));
-      } catch (error) {
-        console.error("Failed to save reminders to localStorage", error);
-      }
-    }
-  }, [reminders, isClient]);
-
-  const handleSnooze = useCallback((id: string) => {
-    setReminders(prev =>
-      prev.map(r =>
-        r.id === id ? { ...r, dateTime: add(new Date(), { minutes: 5 }).toISOString(), notified: false } : r
-      )
-    );
-    toast({ title: 'Snoozed!', description: 'Reminder snoozed for 5 minutes.' });
-  }, [toast]);
-
-  useEffect(() => {
-    // This effect handles the notification interval, only on the client.
-    if (!isClient) return;
-    
-    const intervalId = setInterval(() => {
-      const now = Date.now();
-      let shouldUpdateState = false;
-
-      setReminders(currentReminders => {
-        const newReminders = currentReminders.map(r => {
-            if (!r.completed && !r.notified && new Date(r.dateTime).getTime() <= now) {
-              shouldUpdateState = true;
-              toast({
-                  title: "Reminder: " + r.text,
-                  description: `Scheduled for ${format(new Date(r.dateTime), 'p, MMM d')}`,
-                  duration: 10000,
-                  action: <ToastAction altText="Snooze" onClick={() => handleSnooze(r.id)}>Snooze</ToastAction>,
-              });
-
-              if (toneJsStarted.current) {
-                  try {
-                    const synth = new Tone.Synth().toDestination();
-                    synth.triggerAttackRelease("C5", "8n", Tone.now());
-                  } catch (e) {
-                    console.error("Tone.js error:", e);
-                  }
-              }
-            
-              return { ...r, notified: true };
-            }
-            return r;
-        });
-
-        return shouldUpdateState ? newReminders : currentReminders;
-      });
-
-    }, 5000); // check every 5 seconds
-
-    return () => {
-      clearInterval(intervalId);
-    };
-  }, [isClient, toast, handleSnooze]);
-
-
-  const handleAddReminder = useCallback((data: Omit<Reminder, 'id' | 'completed' | 'notified'>) => {
-    const newReminder: Reminder = {
-      ...data,
-      id: Date.now().toString(),
-      completed: false,
-      notified: false,
-    };
-    setReminders(prev => [newReminder, ...prev]);
-    toast({ title: 'Reminder Added', description: `"${data.text}"` });
-  }, [toast]);
-
-  const handleDeleteReminder = useCallback((id: string) => {
-    setReminders(prev => prev.filter(r => r.id !== id));
-  }, []);
-
-  const handleToggleComplete = useCallback((id: string) => {
-    setReminders(prev =>
-      prev.map(r => (r.id === id ? { ...r, completed: !r.completed } : r))
-    );
-  }, []);
-
-  const handleEditReminder = useCallback((reminder: Reminder) => {
-    setEditingReminder(reminder);
-    setIsEditDialogOpen(true);
-  }, []);
-
-  const handleUpdateReminder = useCallback((id: string, data: Partial<Reminder>) => {
-    setReminders(prev => prev.map(r => r.id === id ? { ...r, ...data, notified: false } : r));
-    setEditingReminder(undefined);
-    setIsEditDialogOpen(false);
-    toast({ title: "Reminder Updated" });
-  }, [toast]);
-
-  if (!isClient) {
-    // Return a loader or null to avoid server-side rendering mismatches
-    // and hydration errors during deployment.
-    return null;
-  }
-
-  return (
-    <SidebarProvider>
-      <div className="flex min-h-screen">
-        <AppSidebar activeCategory={activeCategory} onSelectCategory={setActiveCategory} />
-        <SidebarInset className="flex flex-col">
-          <AppHeader onAddReminder={handleAddReminder} />
-          <main className="flex-1 p-4 overflow-y-auto">
-            <ReminderList
-              reminders={reminders}
-              category={activeCategory}
-              onDelete={handleDeleteReminder}
-              onSnooze={handleSnooze}
-              onToggleComplete={handleToggleComplete}
-              onEdit={handleEditReminder}
-            />
-          </main>
-        </SidebarInset>
-      </div>
-      {editingReminder && (
-        <AddReminderDialog
-          open={isEditDialogOpen}
-          onOpenChange={setIsEditDialogOpen}
-          reminder={editingReminder}
-          onUpdateReminder={handleUpdateReminder}
-          onAddReminder={() => {}} // Not used in edit mode
-        >
-          {/* This is a controlled dialog, trigger is managed by state */}
-          <div />
-        </AddReminderDialog>
-      )}
-    </SidebarProvider>
-  );
-}
+20:51:44.461 Running build in Washington, D.C., USA (East) – iad1
+20:51:44.462 Build machine configuration: 2 cores, 8 GB
+20:51:44.492 Cloning github.com/docspheredm/docsphere-app (Branch: main, Commit: 078bcdb)
+20:51:44.665 Previous build caches not available
+20:51:44.910 Cloning completed: 418.000ms
+20:51:45.281 Running "vercel build"
+20:51:45.705 Vercel CLI 48.2.9
+20:51:46.010 Installing dependencies...
+20:53:02.039 npm warn deprecated inflight@1.0.6: This module is not supported, and leaks memory. Do not use it. Check out lru-cache if you want a good and tested way to coalesce async requests by a key value, which is much more comprehensive and powerful.
+20:53:02.473 npm warn deprecated sourcemap-codec@1.4.8: Please use @jridgewell/sourcemap-codec instead
+20:53:05.813 npm warn deprecated node-domexception@1.0.0: Use your platform's native DOMException instead
+20:53:07.347 npm warn deprecated @opentelemetry/exporter-jaeger@1.30.1: Package no longer supported. Contact Support at https://www.npmjs.com/support for more info.
+20:53:09.214 npm warn deprecated glob@7.2.3: Glob versions prior to v9 are no longer supported
+20:53:09.284 npm warn deprecated glob@7.2.3: Glob versions prior to v9 are no longer supported
+20:53:09.612 npm warn deprecated source-map@0.8.0-beta.0: The work that was done in this beta branch won't be included in future versions
+20:53:09.625 npm warn deprecated source-map@0.8.0-beta.0: The work that was done in this beta branch won't be included in future versions
+20:53:28.814 
+20:53:28.814 added 1215 packages in 2m
+20:53:28.815 
+20:53:28.815 177 packages are looking for funding
+20:53:28.816   run `npm fund` for details
+20:53:28.970 Detected Next.js version: 15.3.3
+20:53:28.981 Running "npm run build"
+20:53:29.716 
+20:53:29.716 > nextn@0.1.0 build
+20:53:29.717 > NODE_ENV=production next build
+20:53:29.717 
+20:53:30.928 Attention: Next.js now collects completely anonymous telemetry regarding usage.
+20:53:30.928 This information is used to shape Next.js' roadmap and prioritize features.
+20:53:30.928 You can learn more, including how to opt-out if you'd not like to participate in this anonymous program, by visiting the following URL:
+20:53:30.929 https://nextjs.org/telemetry
+20:53:30.929 
+20:53:31.021    ▲ Next.js 15.3.3
+20:53:31.022 
+20:53:31.047    Creating an optimized production build ...
+20:53:31.381  ✓ (pwa) Compiling for server...
+20:53:31.385  ✓ (pwa) Compiling for server...
+20:53:31.388  ✓ (pwa) Compiling for client (static)...
+20:53:31.389  ○ (pwa) Service worker: /vercel/path0/public/sw.js
+20:53:31.389  ○ (pwa)   URL: /sw.js
+20:53:31.389  ○ (pwa)   Scope: /
+20:53:39.552 Failed to compile.
+20:53:39.553 
+20:53:39.553 ./src/app/page.tsx
+20:53:39.554 Module not found: Can't resolve '@/components/app/add-reminder-dialog'
+20:53:39.554 
+20:53:39.554 https://nextjs.org/docs/messages/module-not-found
+20:53:39.554 
+20:53:39.556 
+20:53:39.558 > Build failed because of webpack errors
+20:53:39.597 Error: Command "npm run build" exited with 1
