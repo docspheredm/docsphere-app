@@ -43,9 +43,10 @@ describe("API Integration Tests - Medical App Endpoints", () => {
 
       cy.request("POST", `${baseUrl}/patients`, newPatient).then((response) => {
         expect(response.status).to.eq(201);
-        expect(response.body).to.have.property("id");
-        expect(response.body.firstName).to.equal(newPatient.firstName);
-        expect(response.body.lastName).to.equal(newPatient.lastName);
+        expect(response.body.data || response.body).to.have.property("id");
+        const patient = response.body.data || response.body;
+        expect(patient.firstName).to.equal(newPatient.firstName);
+        expect(patient.lastName).to.equal(newPatient.lastName);
       });
     });
 
@@ -98,7 +99,7 @@ describe("API Integration Tests - Medical App Endpoints", () => {
       };
 
       cy.request("POST", `${baseUrl}/patients`, newPatient).then((response) => {
-        patientId = response.body.id;
+        patientId = response.body.data?.id || response.body.id;
       });
     });
 
@@ -125,8 +126,9 @@ describe("API Integration Tests - Medical App Endpoints", () => {
 
       cy.request("POST", `${baseUrl}/encounters`, newEncounter).then((response) => {
         expect(response.status).to.eq(201);
-        expect(response.body).to.have.property("id");
-        expect(response.body.chiefComplaint).to.equal("Headache");
+        const encounter = response.body.data || response.body;
+        expect(encounter).to.have.property("id");
+        expect(encounter.chiefComplaint).to.equal("Headache");
       });
     });
 
@@ -139,7 +141,7 @@ describe("API Integration Tests - Medical App Endpoints", () => {
         `${baseUrl}/encounters?patientId=${patientId}&startDate=${startDate}&endDate=${endDate}`
       ).then((response) => {
         expect(response.status).to.eq(200);
-        expect(response.body).to.have.property("encounters");
+        expect(response.body).to.have.property("data");
       });
     });
 
@@ -154,7 +156,7 @@ describe("API Integration Tests - Medical App Endpoints", () => {
 
       cy.request("POST", `${baseUrl}/encounters`, newEncounter)
         .then((response) => {
-          const encounterId = response.body.id;
+          const encounterId = response.body.data?.id || response.body.id;
 
           // Update the encounter
           const updatedEncounter = {
@@ -170,7 +172,8 @@ describe("API Integration Tests - Medical App Endpoints", () => {
         })
         .then((response) => {
           expect(response.status).to.eq(200);
-          expect(response.body.diagnosis).to.equal("Upper Respiratory Infection");
+          const encounter = response.body.data || response.body;
+          expect(encounter.diagnosis).to.equal("Upper Respiratory Infection");
         });
     });
   });
@@ -440,7 +443,7 @@ describe("API Integration Tests - Medical App Endpoints", () => {
 
       cy.request("POST", `${baseUrl}/reminders`, newReminder)
         .then((response) => {
-          const reminderId = response.body.id;
+          const reminderId = response.body.data?.id || response.body.id;
 
           // Delete the reminder
           return cy.request({
