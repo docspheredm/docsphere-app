@@ -387,7 +387,10 @@ describe("Surgical Encounter Workflow - Complete 5-Stage Surgery Process", () =>
       // Intercept the request and delay it
       cy.intercept("GET", "/api/surgical-patients", (req) => {
         req.reply((res) => {
-          res.delay?.(2000);
+          // set a delay (assign number) instead of calling res.delay()
+          // res.delay is a number property; assign to it to delay the response
+          // Use optional chaining in case res is undefined in some Cypress versions
+          if (res) res.delay = 2000;
         });
       }).as("fetchPatients");
 
