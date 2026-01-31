@@ -13,7 +13,7 @@ describe("API Integration Tests - Medical App Endpoints", () => {
     it("should fetch patients with pagination", () => {
       cy.request("GET", `${baseUrl}/patients?page=1&limit=10`).then((response) => {
         expect(response.status).to.eq(200);
-        expect(response.body.patients).to.have.length.lessThanOrEqual(10);
+        expect(response.body.patients.length).to.be.lte(10);
       });
     });
 
@@ -53,7 +53,7 @@ describe("API Integration Tests - Medical App Endpoints", () => {
         body: invalidPatient,
         failOnStatusCode: false,
       }).then((response) => {
-        expect(response.status).to.be.greaterThanOrEqual(400);
+        expect(response.status).to.be.gte(400);
       });
     });
 
@@ -71,7 +71,7 @@ describe("API Integration Tests - Medical App Endpoints", () => {
         body: patientWithInvalidEmail,
         failOnStatusCode: false,
       }).then((response) => {
-        expect(response.status).to.be.greaterThanOrEqual(400);
+        expect(response.status).to.be.gte(400);
       });
     });
   });
@@ -458,7 +458,7 @@ describe("API Integration Tests - Medical App Endpoints", () => {
         body: "invalid json", // Intentionally invalid
         failOnStatusCode: false,
       }).then((response) => {
-        expect(response.status).to.be.greaterThanOrEqual(400);
+        expect(response.status).to.be.gte(400);
       });
     });
 

@@ -337,7 +337,7 @@ describe("Surgical Encounter Workflow - Complete 5-Stage Surgery Process", () =>
         body: {}, // Missing required fields
         failOnStatusCode: false,
       }).then((response) => {
-        expect(response.status).to.be.greaterThanOrEqual(400);
+        expect(response.status).to.be.gte(400);
       });
     });
 
@@ -387,7 +387,7 @@ describe("Surgical Encounter Workflow - Complete 5-Stage Surgery Process", () =>
       // Intercept the request and delay it
       cy.intercept("GET", "/api/surgical-patients", (req) => {
         req.reply((res) => {
-          res.delay(2000);
+          res.delay?.(2000);
         });
       }).as("fetchPatients");
 
