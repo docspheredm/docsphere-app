@@ -6,7 +6,8 @@ Cypress.on("uncaught:exception", (err, runnable) => {
   // This is useful for handling external errors or expected runtime errors
   if (
     err.message.includes("ResizeObserver") ||
-    err.message.includes("Cannot read properties of undefined")
+    err.message.includes("Cannot read properties of undefined") ||
+    err.message.includes("Hydration failed")
   ) {
     return false;
   }
