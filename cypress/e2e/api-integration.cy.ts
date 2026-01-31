@@ -5,39 +5,47 @@ describe("API Integration Tests - Medical App Endpoints", () => {
     it("should fetch all patients", () => {
       cy.request("GET", `${baseUrl}/patients`).then((response) => {
         expect(response.status).to.eq(200);
-        expect(response.body).to.have.property("patients");
-        expect(Array.isArray(response.body.patients)).to.be.true;
+        expect(response.body).to.have.property("data");
+        expect(response.body).to.have.property("success");
+        expect(Array.isArray(response.body.data)).to.be.true;
       });
     });
 
     it("should fetch patients with pagination", () => {
       cy.request("GET", `${baseUrl}/patients?page=1&limit=10`).then((response) => {
         expect(response.status).to.eq(200);
-        expect(response.body.patients.length).to.be.lte(10);
+        expect(response.body.data).to.be.an("array");
+        expect(response.body.data.length).lte(10);
       });
     });
 
     it("should search patients by name", () => {
       cy.request("GET", `${baseUrl}/patients?search=John`).then((response) => {
         expect(response.status).to.eq(200);
-        if (response.body.patients.length > 0) {
-          expect(response.body.patients[0].name.toLowerCase()).to.include("john");
+        expect(Array.isArray(response.body.data)).to.be.true;
+        if (response.body.data.length > 0) {
+          const firstName = response.body.data[0].firstName || "";
+          const lastName = response.body.data[0].lastName || "";
+          const fullName = `${firstName} ${lastName}`.toLowerCase();
+          expect(fullName).to.include("john");
         }
       });
     });
 
     it("should create a new patient", () => {
       const newPatient = {
-        name: `Test Patient ${Date.now()}`,
+        firstName: `Test`,
+        lastName: `Patient ${Date.now()}`,
         age: 45,
         email: `test${Date.now()}@example.com`,
-        phone: "1234567890",
+        phoneNumber: "1234567890",
       };
 
       cy.request("POST", `${baseUrl}/patients`, newPatient).then((response) => {
         expect(response.status).to.eq(201);
         expect(response.body).to.have.property("id");
-        expect(response.body.name).to.equal(newPatient.name);
+        expect(response.body.firstName).to.equal(newPatient.firstName);
+        expect(response.body.lastName).to.equal(newPatient.lastName);
       });
     });
 
@@ -82,10 +90,11 @@ describe("API Integration Tests - Medical App Endpoints", () => {
     before(() => {
       // Create a patient for testing encounters
       const newPatient = {
-        name: `Encounter Test ${Date.now()}`,
+        firstName: "Encounter",
+        lastName: `Test ${Date.now()}`,
         age: 35,
         email: `encounter${Date.now()}@example.com`,
-        phone: "1234567890",
+        phoneNumber: "1234567890",
       };
 
       cy.request("POST", `${baseUrl}/patients`, newPatient).then((response) => {
@@ -96,8 +105,8 @@ describe("API Integration Tests - Medical App Endpoints", () => {
     it("should fetch encounters for a patient", () => {
       cy.request("GET", `${baseUrl}/encounters?patientId=${patientId}`).then((response) => {
         expect(response.status).to.eq(200);
-        expect(response.body).to.have.property("encounters");
-        expect(Array.isArray(response.body.encounters)).to.be.true;
+        expect(response.body).to.have.property("data");
+        expect(Array.isArray(response.body.data)).to.be.true;
       });
     });
 
@@ -170,16 +179,17 @@ describe("API Integration Tests - Medical App Endpoints", () => {
     it("should fetch all surgical patients", () => {
       cy.request("GET", `${baseUrl}/surgical-patients`).then((response) => {
         expect(response.status).to.eq(200);
-        expect(response.body).to.have.property("patients");
-        expect(Array.isArray(response.body.patients)).to.be.true;
+        expect(response.body).to.have.property("data");
+        expect(Array.isArray(response.body.data)).to.be.true;
       });
     });
 
     it("should filter surgical patients by status", () => {
       cy.request("GET", `${baseUrl}/surgical-patients?status=In Surgery`).then((response) => {
         expect(response.status).to.eq(200);
-        if (response.body.patients.length > 0) {
-          expect(response.body.patients[0].surgicalStatus).to.equal("In Surgery");
+        expect(Array.isArray(response.body.data)).to.be.true;
+        if (response.body.data.length > 0) {
+          expect(response.body.data[0].surgicalStatus).to.equal("In Surgery");
         }
       });
     });
@@ -204,8 +214,9 @@ describe("API Integration Tests - Medical App Endpoints", () => {
 
     it("should display surgical encounter history", () => {
       cy.request("GET", `${baseUrl}/surgical-patients`).then((response) => {
-        if (response.body.patients.length > 0) {
-          const patientId = response.body.patients[0].id;
+        expect(Array.isArray(response.body.data)).to.be.true;
+        if (response.body.data.length > 0) {
+          const patientId = response.body.data[0].id;
 
           cy.request("GET", `${baseUrl}/surgical-encounters?patientId=${patientId}`).then(
             (encounterResponse) => {
@@ -221,16 +232,17 @@ describe("API Integration Tests - Medical App Endpoints", () => {
     it("should fetch surgical encounters", () => {
       cy.request("GET", `${baseUrl}/surgical-encounters`).then((response) => {
         expect(response.status).to.eq(200);
-        expect(response.body).to.have.property("encounters");
+        expect(response.body).to.have.property("data");
       });
     });
 
     it("should filter surgical encounters by status", () => {
       cy.request("GET", `${baseUrl}/surgical-encounters?status=Completed`).then((response) => {
         expect(response.status).to.eq(200);
-        if (response.body.encounters.length > 0) {
+        expect(Array.isArray(response.body.data)).to.be.true;
+        if (response.body.data.length > 0) {
           // Check that at least some encounters have the expected structure
-          expect(response.body.encounters[0]).to.have.property("patientId");
+          expect(response.body.data[0]).to.have.property("patientId");
         }
       });
     });
@@ -259,8 +271,9 @@ describe("API Integration Tests - Medical App Endpoints", () => {
 
     it("should update surgical encounter stage", () => {
       cy.request("GET", `${baseUrl}/surgical-encounters`).then((response) => {
-        if (response.body.encounters.length > 0) {
-          const encounterId = response.body.encounters[0].id;
+        expect(Array.isArray(response.body.data)).to.be.true;
+        if (response.body.data.length > 0) {
+          const encounterId = response.body.data[0].id;
 
           const stageUpdate = {
             stage2: {
@@ -287,16 +300,17 @@ describe("API Integration Tests - Medical App Endpoints", () => {
     it("should fetch all follow-up visits", () => {
       cy.request("GET", `${baseUrl}/followup-visits`).then((response) => {
         expect(response.status).to.eq(200);
-        expect(response.body).to.have.property("followupVisits");
-        expect(Array.isArray(response.body.followupVisits)).to.be.true;
+        expect(response.body).to.have.property("data");
+        expect(Array.isArray(response.body.data)).to.be.true;
       });
     });
 
     it("should filter follow-up visits by type", () => {
       cy.request("GET", `${baseUrl}/followup-visits?type=same-condition`).then((response) => {
         expect(response.status).to.eq(200);
-        if (response.body.followupVisits.length > 0) {
-          expect(response.body.followupVisits[0].followupType).to.equal("same-condition");
+        expect(Array.isArray(response.body.data)).to.be.true;
+        if (response.body.data.length > 0) {
+          expect(response.body.data[0].followupType).to.equal("same-condition");
         }
       });
     });
@@ -304,7 +318,7 @@ describe("API Integration Tests - Medical App Endpoints", () => {
     it("should filter follow-up visits by patient", () => {
       cy.request("GET", `${baseUrl}/followup-visits?patientId=patient-123`).then((response) => {
         expect(response.status).to.eq(200);
-        expect(response.body).to.have.property("followupVisits");
+        expect(response.body).to.have.property("data");
       });
     });
 
@@ -373,7 +387,7 @@ describe("API Integration Tests - Medical App Endpoints", () => {
     it("should fetch all reminders", () => {
       cy.request("GET", `${baseUrl}/reminders`).then((response) => {
         expect(response.status).to.eq(200);
-        expect(response.body).to.have.property("reminders");
+        expect(response.body).to.have.property("data");
       });
     });
 
@@ -396,8 +410,9 @@ describe("API Integration Tests - Medical App Endpoints", () => {
 
     it("should update a reminder", () => {
       cy.request("GET", `${baseUrl}/reminders`).then((response) => {
-        if (response.body.reminders.length > 0) {
-          const reminderId = response.body.reminders[0].id;
+        expect(Array.isArray(response.body.data)).to.be.true;
+        if (response.body.data.length > 0) {
+          const reminderId = response.body.data[0].id;
 
           const updatedReminder = {
             text: "Updated reminder",
