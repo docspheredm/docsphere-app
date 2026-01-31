@@ -1,64 +1,39 @@
 "use client";
 
-import {
-  Sidebar,
-  SidebarHeader,
-  SidebarContent,
-  SidebarMenu,
-  SidebarMenuItem,
-  SidebarMenuButton,
-  SidebarFooter,
-  SidebarTrigger,
-} from '@/components/ui/sidebar';
-import { AppLogo } from '@/components/app/icons';
-import { Separator } from '@/components/ui/separator';
-import { Category, categories } from '@/lib/types';
-import { Layers } from 'lucide-react';
+import { useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { Plus } from 'lucide-react';
+import { VoiceRecorder } from './voice-recorder';
+import { AddReminderDialog } from './add-reminder';
+import { Reminder } from '@/lib/types';
 
-interface AppSidebarProps {
-  activeCategory: Category | 'All';
-  onSelectCategory: (category: Category | 'All') => void;
+interface AppHeaderProps {
+  onAddReminder: (data: Omit<Reminder, 'id' | 'completed' | 'notified'>) => void;
 }
 
-export function AppSidebar({ activeCategory, onSelectCategory }: AppSidebarProps) {
+export function AppHeader({ onAddReminder }: AppHeaderProps) {
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+
   return (
-    <Sidebar collapsible="icon">
-      <SidebarHeader>
-        <div className="flex items-center gap-2">
-          <AppLogo className="text-primary w-7 h-7" />
-          <span className="text-lg font-semibold">VoRe-Docsphere</span>
-        </div>
-      </SidebarHeader>
-      <SidebarContent>
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              onClick={() => onSelectCategory('All')}
-              isActive={activeCategory === 'All'}
-              tooltip="All"
-            >
-              <Layers />
-              <span>All Reminders</span>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-          <Separator className="my-2" />
-          {categories.map(({ name, icon: Icon }) => (
-            <SidebarMenuItem key={name}>
-              <SidebarMenuButton
-                onClick={() => onSelectCategory(name)}
-                isActive={activeCategory === name}
-                tooltip={name}
-              >
-                <Icon />
-                <span>{name}</span>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          ))}
-        </SidebarMenu>
-      </SidebarContent>
-      <SidebarFooter>
-         <SidebarTrigger />
-      </SidebarFooter>
-    </Sidebar>
+    <header className="flex items-center justify-between p-4 border-b">
+      <h1 className="text-2xl font-bold tracking-tight">Your Reminders</h1>
+      <div className="flex items-center gap-4">
+        <VoiceRecorder onAddReminder={onAddReminder} />
+        <AddReminderDialog
+          open={isAddDialogOpen}
+          onOpenChange={setIsAddDialogOpen}
+          onAddReminder={(data) => {
+            onAddReminder(data);
+            setIsAddDialogOpen(false);
+          }}
+        >
+          <Button onClick={() => setIsAddDialogOpen(true)}>
+            <Plus className="-ml-1 mr-2 h-5 w-5" />
+            Add Reminder
+          </Button>
+        </AddReminderDialog>
+      </div>
+    </header>
   );
 }
+
